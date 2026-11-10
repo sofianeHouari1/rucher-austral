@@ -67,7 +67,7 @@ def envoyer_resend(msg):
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 LIMITES = {"prenom": 60, "nom": 60, "email": 150, "telephone": 40, "adresse": 200,
-           "code_postal": 12, "ville": 100, "pays": 60, "message": 1000}
+           "code_postal": 12, "ville": 100, "pays": 60, "message": 1000, "langue": 5}
 OBLIGATOIRES = ("prenom", "nom", "email", "adresse", "code_postal", "ville", "pays")
 _historique = {}  # ip -> horodatages des demandes récentes
 
@@ -118,6 +118,7 @@ def traiter(d):
     maintenant = datetime.now(ZoneInfo("Europe/Brussels"))
     numero = "MK-" + maintenant.strftime("%y%m%d-%H%M%S")
     client = f"{c['prenom']} {c['nom']}"
+    langue = {"fr": "français", "nl": "néerlandais", "en": "anglais"}.get(c["langue"], "français")
 
     msg = EmailMessage()
     msg["Subject"] = f"Demande de réservation {numero} - {client} - {qte} pot{'s' if qte > 1 else ''}"
@@ -137,6 +138,7 @@ def traiter(d):
         f"  Adresse : {c['adresse']}\n"
         f"            {c['code_postal']} {c['ville']}\n"
         f"            {c['pays']}\n\n"
+        f"  Langue du site : {langue}\n\n"
         f"Message :\n{c['message'] or '-'}\n\n"
         f"Répondez à cet e-mail pour écrire directement au client.\n"
     )

@@ -17,7 +17,7 @@ apt-get install -y nginx python3
 # 1. Site
 mkdir -p "$WEBROOT"
 install -m 644 "$SRC/index.html" "$WEBROOT/index.html"
-install -m 644 "$SRC/manuka-recolte.mp4" "$SRC/manuka-poster.jpg" "$WEBROOT/"
+install -m 644 "$SRC"/*.mp4 "$SRC"/*.jpg "$WEBROOT/"
 
 # 2. API des demandes de commande (envoi d'e-mail)
 mkdir -p "$APPDIR"
