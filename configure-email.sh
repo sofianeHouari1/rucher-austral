@@ -20,7 +20,7 @@ while true; do
 done
 
 echo
-echo "Mot de passe d'application Google (16 lettres) :"
+echo "Clé de 16 lettres (mot de passe d'application Google) :"
 echo "  compte Google > Sécurité > Validation en deux étapes > Mots de passe des applications"
 echo "  (pas votre mot de passe Gmail habituel). Rien ne s'affiche quand vous collez, c'est normal."
 while true; do
@@ -32,29 +32,39 @@ done
 
 echo
 echo "Vérification auprès de Gmail..."
-if ! SMTP_USER="$MAIL" SMTP_PASS="$PASS" python3 - <<'PY'
-import os, smtplib, ssl, sys
-try:
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as s:
-        s.starttls(context=ssl.create_default_context())
-        s.login(os.environ["SMTP_USER"], os.environ["SMTP_PASS"])
-except smtplib.SMTPAuthenticationError:
-    print("Gmail refuse l'adresse ou le mot de passe d'application.")
-    sys.exit(1)
-except Exception as e:
-    print("Connexion à Gmail impossible :", e)
-    sys.exit(1)
+if ! PORT_OK=$(SMTP_USER="$MAIL" SMTP_PASS="$PASS" python3 - <<'PY'
+import os, smtplib, socket, ssl, sys
+_orig = socket.getaddrinfo
+socket.getaddrinfo = lambda h, p, f=0, *a, **k: _orig(h, p, socket.AF_INET, *a, **k)  # IPv4 uniquement
+user, pw = os.environ["SMTP_USER"], os.environ["SMTP_PASS"]
+ctx = ssl.create_default_context()
+erreurs = []
+for port in (587, 465):
+    try:
+        if port == 465:
+            s = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=15)
+        else:
+            s = smtplib.SMTP("smtp.gmail.com", 587, timeout=15); s.starttls(context=ctx)
+        with s:
+            s.login(user, pw)
+        print(port); sys.exit(0)
+    except smtplib.SMTPAuthenticationError:
+        print("Gmail refuse l'adresse ou la clé de 16 lettres.", file=sys.stderr); sys.exit(1)
+    except Exception as e:
+        erreurs.append(f"port {port} : {e}")
+print("Connexion à Gmail impossible (" + " ; ".join(erreurs) + ")", file=sys.stderr)
+sys.exit(1)
 PY
-then
-  echo "Rien n'a été modifié. Vérifiez l'adresse et le mot de passe d'application, puis relancez :"
-  echo "  sudo bash configure-email.sh"
+); then
+  echo "Rien n'a été modifié. Relancez : sudo bash configure-email.sh"
   exit 1
 fi
+echo "Connexion à Gmail réussie (port $PORT_OK)."
 
 umask 077
 cat > "$ENVFILE" <<ENV
 SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
+SMTP_PORT=$PORT_OK
 SMTP_USER=$MAIL
 SMTP_PASS=$PASS
 MAIL_TO=$MAIL

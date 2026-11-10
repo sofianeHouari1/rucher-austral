@@ -9,6 +9,7 @@ import json
 import os
 import re
 import smtplib
+import socket
 import ssl
 import time
 from datetime import datetime
@@ -16,6 +17,10 @@ from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
+
+# L'instance n'a pas de route IPv6 : on force l'IPv4 pour joindre le serveur SMTP.
+_getaddrinfo = socket.getaddrinfo
+socket.getaddrinfo = lambda h, p, f=0, *a, **k: _getaddrinfo(h, p, socket.AF_INET, *a, **k)
 
 # Prix fixé côté serveur : le navigateur n'envoie que la quantité.
 PRODUIT = "Miel de Manuka Oregan MGO 1650+ (500 g)"
