@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assistant de configuration des e-mails de la boutique Rucher Austral (via Resend, en HTTPS).
+# Assistant de configuration des e-mails de la boutique Manuka (via Resend, en HTTPS).
 # L'instance OVH bloque l'envoi SMTP sortant : on passe par l'API HTTPS de Resend.
 # Usage : sudo bash configure-email.sh
 set -euo pipefail
@@ -37,14 +37,14 @@ import json, os, socket, sys, urllib.error, urllib.request
 _orig = socket.getaddrinfo
 socket.getaddrinfo = lambda h, p, f=0, *a, **k: _orig(h, p, socket.AF_INET, *a, **k)  # IPv4
 corps = {
-    "from": "Rucher Austral <onboarding@resend.dev>",
+    "from": "Manuka <onboarding@resend.dev>",
     "to": [os.environ["MAIL_TO"]],
-    "subject": "Rucher Austral : e-mails de réservation activés",
+    "subject": "Manuka : e-mails de réservation activés",
     "text": "Ce message confirme que les demandes de réservation du site arriveront sur cette adresse.",
 }
 req = urllib.request.Request("https://api.resend.com/emails", data=json.dumps(corps).encode(),
     headers={"Authorization": "Bearer " + os.environ["RESEND_API_KEY"],
-             "Content-Type": "application/json", "User-Agent": "rucher-austral/1.0"}, method="POST")
+             "Content-Type": "application/json", "User-Agent": "manuka/1.0"}, method="POST")
 try:
     urllib.request.urlopen(req, timeout=20).read()
 except urllib.error.HTTPError as e:
@@ -70,7 +70,7 @@ cat > "$ENVFILE" <<ENV
 RESEND_API_KEY=$KEY
 MAIL_TO=$MAIL
 MAIL_FROM=onboarding@resend.dev
-SHOP_NAME=Rucher Austral
+SHOP_NAME=Manuka
 ENV
 chmod 600 "$ENVFILE"
 unset KEY

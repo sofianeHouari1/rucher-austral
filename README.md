@@ -1,4 +1,4 @@
-# Rucher Austral
+# Manuka
 
 Boutique mono-produit (miel de Manuka Oregan MGO 1650+). Pas de paiement en ligne :
 le client envoie une **demande de commande**, reçue par e-mail.

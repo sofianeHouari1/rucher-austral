@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installe la boutique Rucher Austral sur une instance OVH (Ubuntu/Debian).
+# Installe la boutique Manuka sur une instance OVH (Ubuntu/Debian).
 # Usage : sudo bash deploy.sh                 -> accessible en http://IP
 #         sudo PORT=8080 bash deploy.sh       -> sur un autre port si le 80 est déjà pris
 #         sudo bash deploy.sh mondomaine.be   -> + certificat HTTPS Let's Encrypt (port 80 libre requis)
@@ -36,7 +36,7 @@ SMTP_PASS=
 MAIL_TO=
 # Expéditeur (laisser vide = SMTP_USER)
 MAIL_FROM=
-SHOP_NAME=Rucher Austral
+SHOP_NAME=Manuka
 ENV
   chmod 600 "$ENVFILE"
   echo "Fichier de réglages e-mail créé : $ENVFILE (à compléter)"
@@ -44,7 +44,7 @@ fi
 
 cat > /etc/systemd/system/rucher-austral-api.service <<UNIT
 [Unit]
-Description=Rucher Austral - demandes de commande par e-mail
+Description=Manuka - demandes de commande par e-mail
 After=network-online.target
 Wants=network-online.target
 

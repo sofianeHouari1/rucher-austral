@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rucher Austral - reçoit les demandes de réservation et les envoie par e-mail.
+"""Manuka - reçoit les demandes de réservation et les envoie par e-mail.
 
 Écoute sur 127.0.0.1:8081, derrière Nginx (/api/commande).
 Configuration : /etc/rucher-austral.env (voir deploy.sh).
@@ -32,7 +32,7 @@ QTE_MAX = 10
 CFG = {k: os.environ.get(k, "") for k in (
     "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "MAIL_TO", "SHOP_NAME", "RESEND_API_KEY")}
 CFG["SMTP_PORT"] = int(CFG["SMTP_PORT"] or 587)
-CFG["SHOP_NAME"] = CFG["SHOP_NAME"] or "Rucher Austral"
+CFG["SHOP_NAME"] = CFG["SHOP_NAME"] or "Manuka"
 CFG["MAIL_FROM"] = CFG["MAIL_FROM"] or CFG["SMTP_USER"] or "onboarding@resend.dev"
 
 
@@ -57,7 +57,7 @@ def envoyer_resend(msg):
         data=json.dumps(corps).encode(),
         headers={"Authorization": "Bearer " + CFG["RESEND_API_KEY"],
                  "Content-Type": "application/json",
-                 "User-Agent": "rucher-austral/1.0"},
+                 "User-Agent": "manuka/1.0"},
         method="POST")
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
@@ -116,7 +116,7 @@ def traiter(d):
 
     total = qte * PRIX
     maintenant = datetime.now(ZoneInfo("Europe/Brussels"))
-    numero = "RA-" + maintenant.strftime("%y%m%d-%H%M%S")
+    numero = "MK-" + maintenant.strftime("%y%m%d-%H%M%S")
     client = f"{c['prenom']} {c['nom']}"
 
     msg = EmailMessage()
@@ -146,7 +146,7 @@ def traiter(d):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "RucherAustral"
+    server_version = "Manuka"
 
     def repondre(self, code, data):
         corps = json.dumps(data, ensure_ascii=False).encode()
@@ -179,7 +179,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             return self.repondre(400, {"erreur": "Demande invalide."})
         if d.get("website"):  # champ piège anti-robots
-            return self.repondre(200, {"ok": True, "numero": "RA-0"})
+            return self.repondre(200, {"ok": True, "numero": "MK-0"})
         if trop_de_demandes(ip):
             return self.repondre(429, {"erreur": "Trop de demandes. Réessayez dans quelques minutes."})
         if not email_configure():
@@ -197,5 +197,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print("API Rucher Austral sur 127.0.0.1:8081", flush=True)
+    print("API Manuka sur 127.0.0.1:8081", flush=True)
     ThreadingHTTPServer(("127.0.0.1", 8081), Handler).serve_forever()
