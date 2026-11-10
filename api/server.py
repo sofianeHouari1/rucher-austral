@@ -12,6 +12,8 @@ import smtplib
 import socket
 import ssl
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
@@ -28,10 +30,40 @@ PRIX = 190.00
 QTE_MAX = 10
 
 CFG = {k: os.environ.get(k, "") for k in (
-    "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "MAIL_TO", "SHOP_NAME")}
+    "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "MAIL_TO", "SHOP_NAME", "RESEND_API_KEY")}
 CFG["SMTP_PORT"] = int(CFG["SMTP_PORT"] or 587)
 CFG["SHOP_NAME"] = CFG["SHOP_NAME"] or "Rucher Austral"
-CFG["MAIL_FROM"] = CFG["MAIL_FROM"] or CFG["SMTP_USER"]
+CFG["MAIL_FROM"] = CFG["MAIL_FROM"] or CFG["SMTP_USER"] or "onboarding@resend.dev"
+
+
+def email_configure():
+    if not CFG["MAIL_TO"]:
+        return False
+    return bool(CFG["RESEND_API_KEY"]) or all(CFG[k] for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASS"))
+
+
+def envoyer_resend(msg):
+    """Envoi via l'API HTTPS de Resend (utile quand l'hébergeur bloque le SMTP)."""
+    corps = {
+        "from": msg["From"],
+        "to": [CFG["MAIL_TO"]],
+        "subject": str(msg["Subject"]),
+        "text": msg.get_content(),
+    }
+    if msg["Reply-To"]:
+        corps["reply_to"] = str(msg["Reply-To"])
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(corps).encode(),
+        headers={"Authorization": "Bearer " + CFG["RESEND_API_KEY"],
+                 "Content-Type": "application/json",
+                 "User-Agent": "rucher-austral/1.0"},
+        method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            r.read()
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Resend {e.code} : {e.read().decode(errors='replace')[:300]}")
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 LIMITES = {"prenom": 60, "nom": 60, "email": 150, "telephone": 40, "adresse": 200,
@@ -55,6 +87,8 @@ def eur(x):
 
 
 def envoyer(msg):
+    if CFG["RESEND_API_KEY"]:
+        return envoyer_resend(msg)
     if CFG["SMTP_PORT"] == 465:
         with smtplib.SMTP_SSL(CFG["SMTP_HOST"], 465, context=ssl.create_default_context(), timeout=20) as s:
             s.login(CFG["SMTP_USER"], CFG["SMTP_PASS"])
@@ -125,8 +159,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/api/sante":
-            pret = all(CFG[k] for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO"))
-            return self.repondre(200, {"ok": True, "email_configure": pret})
+            return self.repondre(200, {"ok": True, "email_configure": email_configure()})
         self.repondre(404, {"erreur": "Introuvable."})
 
     def do_POST(self):
@@ -149,7 +182,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.repondre(200, {"ok": True, "numero": "RA-0"})
         if trop_de_demandes(ip):
             return self.repondre(429, {"erreur": "Trop de demandes. Réessayez dans quelques minutes."})
-        if not all(CFG[k] for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO")):
+        if not email_configure():
             print("E-mail non configuré : complétez /etc/rucher-austral.env", flush=True)
             return self.repondre(503, {"erreur": "Les commandes sont momentanément indisponibles."})
         try:
