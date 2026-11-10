@@ -9,10 +9,9 @@ le client envoie une **demande de commande**, reçue par e-mail.
 
 ## Régler l'envoi des e-mails (une seule fois)
 
-    sudo nano /etc/rucher-austral.env
-    sudo systemctl restart rucher-austral-api
+    sudo bash configure-email.sh
 
-Renseigner SMTP_USER, SMTP_PASS (mot de passe d'application Gmail) et MAIL_TO.
+L'assistant demande l'adresse Gmail et le mot de passe d'application, vérifie la connexion, puis enregistre.
 
 ## Vérifier
 

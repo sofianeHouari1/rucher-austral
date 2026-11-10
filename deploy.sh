@@ -114,5 +114,5 @@ sleep 1
 if curl -s http://127.0.0.1:8081/api/sante | grep -q '"email_configure": true'; then
   echo "E-mails de commande : configurés."
 else
-  echo "E-mails de commande : PAS ENCORE configurés. Complétez $ENVFILE puis : sudo systemctl restart rucher-austral-api"
+  echo "E-mails de commande : PAS ENCORE configurés. Lancez : sudo bash configure-email.sh"
 fi
