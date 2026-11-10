@@ -1,15 +1,20 @@
-RUCHER AUSTRAL — déploiement sur instance OVH
+# Rucher Austral
 
-Depuis votre ordinateur (remplacez IP par l'IP de l'instance, ubuntu par l'utilisateur si différent) :
+Boutique mono-produit (miel de Manuka Oregan MGO 1650+). Pas de paiement en ligne :
+le client envoie une **demande de commande**, reçue par e-mail.
 
-  unzip rucher-austral.zip
-  scp -r rucher-austral ubuntu@IP:~
-  ssh ubuntu@IP "cd rucher-austral && sudo ./deploy.sh"
+## Installer / mettre à jour (instance OVH)
 
-Avec un nom de domaine (enregistrement A pointant d'abord vers l'IP) :
+    cd ~/rucher-austral && git pull && sudo PORT=8080 bash deploy.sh
 
-  ssh ubuntu@IP "cd rucher-austral && sudo ./deploy.sh mondomaine.be"
+## Régler l'envoi des e-mails (une seule fois)
 
-Mise à jour du site plus tard :
+    sudo nano /etc/rucher-austral.env
+    sudo systemctl restart rucher-austral-api
 
-  scp rucher-austral/index.html ubuntu@IP:/tmp/ && ssh ubuntu@IP "sudo cp /tmp/index.html /var/www/rucher-austral/"
+Renseigner SMTP_USER, SMTP_PASS (mot de passe d'application Gmail) et MAIL_TO.
+
+## Vérifier
+
+    curl -s http://127.0.0.1:8081/api/sante
+    sudo journalctl -u rucher-austral-api -n 20
