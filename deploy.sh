@@ -17,6 +17,7 @@ apt-get install -y nginx python3
 # 1. Site
 mkdir -p "$WEBROOT"
 install -m 644 "$SRC/index.html" "$WEBROOT/index.html"
+install -m 644 "$SRC/manuka-recolte.mp4" "$SRC/manuka-poster.jpg" "$WEBROOT/"
 
 # 2. API des demandes de commande (envoi d'e-mail)
 mkdir -p "$APPDIR"
@@ -79,6 +80,7 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin;
     gzip on;
     gzip_types text/css application/javascript application/json;
+    location ~* \.(mp4|jpg)$ { add_header Cache-Control "public, max-age=604800"; }
 
     location /api/ {
         proxy_pass http://127.0.0.1:8081;
