@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rucher Austral - reçoit les demandes de commande et les envoie par e-mail.
+"""Rucher Austral - reçoit les demandes de réservation et les envoie par e-mail.
 
 Écoute sur 127.0.0.1:8081, derrière Nginx (/api/commande).
 Configuration : /etc/rucher-austral.env (voir deploy.sh).
@@ -17,11 +17,9 @@ from email.utils import formataddr, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
-# Prix fixés côté serveur : le navigateur n'envoie que la quantité.
+# Prix fixé côté serveur : le navigateur n'envoie que la quantité.
 PRODUIT = "Miel de Manuka Oregan MGO 1650+ (500 g)"
 PRIX = 190.00
-LIVRAISON = 6.90
-LIVRAISON_OFFERTE_DES = 150.00
 QTE_MAX = 10
 
 CFG = {k: os.environ.get(k, "") for k in (
@@ -29,11 +27,11 @@ CFG = {k: os.environ.get(k, "") for k in (
 CFG["SMTP_PORT"] = int(CFG["SMTP_PORT"] or 587)
 CFG["SHOP_NAME"] = CFG["SHOP_NAME"] or "Rucher Austral"
 CFG["MAIL_FROM"] = CFG["MAIL_FROM"] or CFG["SMTP_USER"]
-CONFIRMATION_CLIENT = os.environ.get("CONFIRMATION_CLIENT", "1") == "1"
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-LIMITES = {"nom": 100, "email": 150, "telephone": 40, "adresse": 200,
-           "code_postal": 12, "ville": 100, "message": 1000}
+LIMITES = {"prenom": 60, "nom": 60, "email": 150, "telephone": 40, "adresse": 200,
+           "code_postal": 12, "ville": 100, "pays": 60, "message": 1000}
+OBLIGATOIRES = ("prenom", "nom", "email", "adresse", "code_postal", "ville", "pays")
 _historique = {}  # ip -> horodatages des demandes récentes
 
 
@@ -64,12 +62,11 @@ def envoyer(msg):
 
 
 def traiter(d):
-    champs = {k: " ".join(str(d.get(k, "")).split())[:n] for k, n in LIMITES.items()}
-    champs["message"] = str(d.get("message", "")).strip()[:LIMITES["message"]]
-    for k in ("nom", "email", "adresse", "code_postal", "ville"):
-        if not champs[k]:
-            return 400, {"erreur": "Complétez les champs obligatoires."}
-    if not EMAIL_RE.match(champs["email"]):
+    c = {k: " ".join(str(d.get(k, "")).split())[:n] for k, n in LIMITES.items()}
+    c["message"] = str(d.get("message", "")).strip()[:LIMITES["message"]]
+    if any(not c[k] for k in OBLIGATOIRES):
+        return 400, {"erreur": "Complétez les champs obligatoires."}
+    if not EMAIL_RE.match(c["email"]):
         return 400, {"erreur": "L'adresse e-mail n'est pas valide."}
     try:
         qte = int(d.get("quantite", 0))
@@ -78,59 +75,35 @@ def traiter(d):
     if not 1 <= qte <= QTE_MAX:
         return 400, {"erreur": "Quantité invalide."}
 
-    sous_total = qte * PRIX
-    port = 0.0 if sous_total >= LIVRAISON_OFFERTE_DES else LIVRAISON
-    total = sous_total + port
+    total = qte * PRIX
     maintenant = datetime.now(ZoneInfo("Europe/Brussels"))
     numero = "RA-" + maintenant.strftime("%y%m%d-%H%M%S")
+    client = f"{c['prenom']} {c['nom']}"
 
-    recap = (
-        f"{qte} × {PRODUIT} à {eur(PRIX)}\n"
-        f"Sous-total : {eur(sous_total)}\n"
-        f"Livraison (Belgique) : {'offerte' if port == 0 else eur(port)}\n"
-        f"Total estimé : {eur(total)}\n"
-    )
-
-    vendeur = EmailMessage()
-    vendeur["Subject"] = f"Nouvelle demande de commande {numero} - {champs['nom']} - {eur(total)}"
-    vendeur["From"] = formataddr((CFG["SHOP_NAME"], CFG["MAIL_FROM"]))
-    vendeur["To"] = CFG["MAIL_TO"]
-    vendeur["Reply-To"] = formataddr((champs["nom"], champs["email"]))
-    vendeur["Message-ID"] = make_msgid(domain="rucher-austral")
-    vendeur.set_content(
+    msg = EmailMessage()
+    msg["Subject"] = f"Demande de réservation {numero} - {client} - {qte} pot{'s' if qte > 1 else ''}"
+    msg["From"] = formataddr((CFG["SHOP_NAME"], CFG["MAIL_FROM"]))
+    msg["To"] = CFG["MAIL_TO"]
+    msg["Reply-To"] = formataddr((client, c["email"]))
+    msg["Message-ID"] = make_msgid(domain="rucher-austral")
+    msg.set_content(
         f"Demande {numero} reçue le {maintenant.strftime('%d/%m/%Y à %H:%M')}\n\n"
-        f"{recap}\n"
+        f"Quantité demandée : {qte} × {PRODUIT}\n"
+        f"Montant indicatif : {eur(total)} (hors livraison)\n\n"
         f"Client\n"
-        f"  Nom : {champs['nom']}\n"
-        f"  E-mail : {champs['email']}\n"
-        f"  Téléphone : {champs['telephone'] or '-'}\n"
-        f"  Adresse : {champs['adresse']}, {champs['code_postal']} {champs['ville']}\n\n"
-        f"Message :\n{champs['message'] or '-'}\n\n"
-        f"Répondez directement à cet e-mail pour écrire au client.\n"
+        f"  Prénom : {c['prenom']}\n"
+        f"  Nom : {c['nom']}\n"
+        f"  E-mail : {c['email']}\n"
+        f"  Téléphone : {c['telephone'] or '-'}\n"
+        f"  Adresse : {c['adresse']}\n"
+        f"            {c['code_postal']} {c['ville']}\n"
+        f"            {c['pays']}\n\n"
+        f"Message :\n{c['message'] or '-'}\n\n"
+        f"Répondez à cet e-mail pour écrire directement au client.\n"
     )
-    envoyer(vendeur)
-
-    if CONFIRMATION_CLIENT:
-        client = EmailMessage()
-        client["Subject"] = f"Votre demande de commande {numero} - {CFG['SHOP_NAME']}"
-        client["From"] = formataddr((CFG["SHOP_NAME"], CFG["MAIL_FROM"]))
-        client["To"] = champs["email"]
-        client["Reply-To"] = CFG["MAIL_TO"]
-        client.set_content(
-            f"Bonjour {champs['nom']},\n\n"
-            f"Nous avons bien reçu votre demande de commande {numero} :\n\n{recap}\n"
-            f"Livraison prévue à : {champs['adresse']}, {champs['code_postal']} {champs['ville']}\n\n"
-            f"Aucun paiement n'a été effectué. Nous revenons vers vous rapidement pour "
-            f"confirmer la commande et les modalités de règlement.\n\n"
-            f"{CFG['SHOP_NAME']}\n"
-        )
-        try:
-            envoyer(client)
-        except Exception as e:  # la demande est déjà arrivée chez le vendeur
-            print("Confirmation client non envoyée :", e, flush=True)
-
-    print(f"Demande {numero} envoyée ({qte} pot(s), {eur(total)})", flush=True)
-    return 200, {"ok": True, "numero": numero, "total": round(total, 2)}
+    envoyer(msg)
+    print(f"Demande {numero} envoyée ({qte} pot(s))", flush=True)
+    return 200, {"ok": True, "numero": numero}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -168,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             return self.repondre(400, {"erreur": "Demande invalide."})
         if d.get("website"):  # champ piège anti-robots
-            return self.repondre(200, {"ok": True, "numero": "RA-0", "total": 0})
+            return self.repondre(200, {"ok": True, "numero": "RA-0"})
         if trop_de_demandes(ip):
             return self.repondre(429, {"erreur": "Trop de demandes. Réessayez dans quelques minutes."})
         if not all(CFG[k] for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO")):

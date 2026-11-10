@@ -32,13 +32,11 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
-# Adresse qui reçoit les demandes de commande
+# Adresse qui reçoit les demandes (jamais visible par les clients)
 MAIL_TO=
 # Expéditeur (laisser vide = SMTP_USER)
 MAIL_FROM=
 SHOP_NAME=Rucher Austral
-# 1 = le client reçoit un accusé de réception
-CONFIRMATION_CLIENT=1
 ENV
   chmod 600 "$ENVFILE"
   echo "Fichier de réglages e-mail créé : $ENVFILE (à compléter)"
